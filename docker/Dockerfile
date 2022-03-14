@@ -18,24 +18,24 @@ ENV LC_ALL=C.UTF-8 \
 # Debian package caching.
 ARG APT_PROXY
 RUN set -x \
-&& if [ "${APT_PROXY}" ]; \
+    && if [ "${APT_PROXY}" ]; \
     then echo "Acquire::http { Proxy \"http://${APT_PROXY}\"; };" > /etc/apt/apt.conf.d/01proxy \
-; fi \
-# Install base OS packages to run Mayan EDMS.
-&& echo "deb http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list \
-&& echo "deb-src http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list \
-&& echo "deb http://deb.debian.org/debian bullseye main contrib non-free" >> /etc/apt/sources.list \
-&& echo "deb-src http://deb.debian.org/debian bullseye main contrib non-free" >> /etc/apt/sources.list \
-&& echo "Package: *\nPin: release n=bullseye\nPin-Priority: 50\n" > /etc/apt/preferences \
-&& DEBIAN_FRONTEND=noninteractive \
-apt-get update \
-&& apt-get install --no-install-recommends --target-release buster-backports --yes \
+    ; fi \
+    # Install base OS packages to run Mayan EDMS.
+    && echo "deb http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list \
+    && echo "deb-src http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list \
+    && echo "deb http://deb.debian.org/debian bullseye main contrib non-free" >> /etc/apt/sources.list \
+    && echo "deb-src http://deb.debian.org/debian bullseye main contrib non-free" >> /etc/apt/sources.list \
+    && echo "Package: *\nPin: release n=bullseye\nPin-Priority: 50\n" > /etc/apt/preferences \
+    && DEBIAN_FRONTEND=noninteractive \
+    apt-get update \
+    && apt-get install --no-install-recommends --target-release buster-backports --yes \
     libreoffice-calc-nogui \
     libreoffice-draw-nogui \
     libreoffice-impress-nogui \
     libreoffice-math-nogui \
     libreoffice-writer-nogui \
-&& apt-get install --no-install-recommends --yes \
+    && apt-get install --no-install-recommends --yes \
     ca-certificates \
     exiftool \
     fonts-arphic-uming \
@@ -57,10 +57,10 @@ apt-get update \
     sane-utils \
     sudo \
     tesseract-ocr \
-&& apt-get install --no-install-recommends --target-release bullseye --yes \
+    && apt-get install --no-install-recommends --target-release bullseye --yes \
     supervisor \
-# Remove make and build dependencies.
-&& apt-get remove --purge --yes \
+    # Remove make and build dependencies.
+    && apt-get remove --purge --yes \
     make \
     libproxy-tools \
     libreoffice-avmedia-backend-vlc \
@@ -70,20 +70,20 @@ apt-get update \
     adwaita-icon-theme \
     gsettings-desktop-schemas \
     libgstreamer-plugins-base1.0-0 \
-&& apt-get autoremove --purge --yes \
-# Add mayan user.
-&& adduser mayan --disabled-password --disabled-login --no-create-home --gecos "" \
-# Pillow can't find zlib or libjpeg on aarch64 (ODROID C2).
-&& if [ "$(uname -m)" = "aarch64" ]; then \
+    && apt-get autoremove --purge --yes \
+    # Add mayan user.
+    && adduser mayan --disabled-password --disabled-login --no-create-home --gecos "" \
+    # Pillow can't find zlib or libjpeg on aarch64 (ODROID C2).
+    && if [ "$(uname -m)" = "aarch64" ]; then \
     ln -s /usr/lib/aarch64-linux-gnu/libz.so /usr/lib/ \
     && ln -s /usr/lib/aarch64-linux-gnu/libjpeg.so /usr/lib/ \
-; fi \
-# Pillow can't find zlib or libjpeg on armv7l (ODROID HC1).
-&& if [ "$(uname -m)" = "armv7l" ]; then \
+    ; fi \
+    # Pillow can't find zlib or libjpeg on armv7l (ODROID HC1).
+    && if [ "$(uname -m)" = "armv7l" ]; then \
     ln -s /usr/lib/arm-linux-gnueabihf/libz.so /usr/lib/ \
     && ln -s /usr/lib/arm-linux-gnueabihf/libjpeg.so /usr/lib/ \
-; fi \
-&& sed -i 's/#user_allow_other/user_allow_other/g' /etc/fuse.conf
+    ; fi \
+    && sed -i 's/#user_allow_other/user_allow_other/g' /etc/fuse.conf
 
 ####
 # builder_image - This image builds the Python package and is discarded afterwards
@@ -99,9 +99,11 @@ ARG PIP_TRUSTED_HOST
 
 WORKDIR /src
 
+RUN sudo usermod -a -G 0 mayan
+
 # Copy the source files needed to build the Python package.
-COPY --chown=mayan:mayan requirements /src/requirements
-COPY --chown=mayan:mayan \
+COPY --chown=mayan:0 requirements /src/requirements
+COPY --chown=mayan:0 \
     HISTORY.rst \
     LICENSE \
     MANIFEST.in \
@@ -110,11 +112,11 @@ COPY --chown=mayan:mayan \
     setup.py \
     /src/
 
-COPY --chown=mayan:mayan mayan /src/mayan
+COPY --chown=mayan:0 mayan /src/mayan
 
 # Install development packages needed to build the Python packages.
 RUN DEBIAN_FRONTEND=noninteractive \
-apt-get install --no-install-recommends --yes \
+    apt-get install --no-install-recommends --yes \
     default-libmysqlclient-dev \
     libffi-dev \
     libjpeg-dev \
@@ -128,39 +130,41 @@ apt-get install --no-install-recommends --yes \
     python3-dev \
     python3-venv \
     zlib1g-dev \
-&& mkdir -p "${PROJECT_INSTALL_DIR}" \
-&& chown -R mayan:mayan "${PROJECT_INSTALL_DIR}" \
-&& chown -R mayan:mayan /src
+    && mkdir -p "${PROJECT_INSTALL_DIR}" \
+    && chown -R mayan:0 "${PROJECT_INSTALL_DIR}" \
+    && fix_permissions() { while [ $# -gt 0 ] ; do chgrp -R 0 "$1" && chmod -R g=u "$1"; shift; done } \
+    && fix_permissions /opt/mayan-edms \
+    && chown -R mayan:0 /src
 
 USER mayan
 
 RUN set -a \
-&& . /config.env \
-&& set +a \
-&& python3 -m venv "${PROJECT_INSTALL_DIR}" \
-&& . "${PROJECT_INSTALL_DIR}bin/activate" \
-&& pip install --no-cache-dir \
+    && . /config.env \
+    && set +a \
+    && python3 -m venv "${PROJECT_INSTALL_DIR}" \
+    && . "${PROJECT_INSTALL_DIR}bin/activate" \
+    && pip install --no-cache-dir \
     pip==${PYTHON_PIP_VERSION} \
     amqp==${PYTHON_AMQP_VERSION} \
     mysqlclient==${PYTHON_MYSQL_VERSION} \
     psycopg2==${PYTHON_PSYCOPG2_VERSION} \
     redis==${PYTHON_REDIS_VERSION} \
     flower==${PYTHON_FLOWER_VERSION} \
-# psutil is needed by ARM builds otherwise gevent and gunicorn fail to start.
-&& UNAME=`uname -m` && if [ "${UNAME#*arm}" != ${UNAME} ]; then \
+    # psutil is needed by ARM builds otherwise gevent and gunicorn fail to start.
+    && UNAME=`uname -m` && if [ "${UNAME#*arm}" != ${UNAME} ]; then \
     pip install --no-cache-dir \
     psutil==${PYTHON_PSUTIL_VERSION} \
-; fi \
-# Install the Python packages needed to build Mayan EDMS.
-&& pip install --no-cache-dir --requirement /src/requirements/build.txt \
-# Build Mayan EDMS.
-&& python3 setup.py sdist \
-&& pip wheel --no-index --no-deps --wheel-dir dist dist/mayan-edms-*.tar.gz \
-# Install the built Mayan EDMS package.
-&& pip install --no-cache-dir dist/mayan_edms-*.whl \
-# Install the static content.
-&& mayan-edms.py installdependencies \
-&& MAYAN_STATIC_ROOT=${PROJECT_INSTALL_DIR}static mayan-edms.py preparestatic --link --noinput
+    ; fi \
+    # Install the Python packages needed to build Mayan EDMS.
+    && pip install --no-cache-dir --requirement /src/requirements/build.txt \
+    # Build Mayan EDMS.
+    && python3 setup.py sdist \
+    && pip wheel --no-index --no-deps --wheel-dir dist dist/mayan-edms-*.tar.gz \
+    # Install the built Mayan EDMS package.
+    && pip install --no-cache-dir dist/mayan_edms-*.whl \
+    # Install the static content.
+    && mayan-edms.py installdependencies \
+    && MAYAN_STATIC_ROOT=${PROJECT_INSTALL_DIR}static mayan-edms.py preparestatic --link --noinput
 
 COPY --chown=mayan:mayan requirements/testing-base.txt "${PROJECT_INSTALL_DIR}"
 
@@ -168,7 +172,7 @@ COPY --chown=mayan:mayan requirements/testing-base.txt "${PROJECT_INSTALL_DIR}"
 # Final image - base_image + builder_image artifact (Mayan install directory).
 ####
 
-FROM base_image
+FROM base_image as final_image
 
 COPY --from=builder_image --chown=mayan:mayan "${PROJECT_INSTALL_DIR}" "${PROJECT_INSTALL_DIR}"
 
@@ -184,19 +188,48 @@ EXPOSE 8000
 CMD ["run_all"]
 
 RUN set -a \
-&& . /config.env \
-&& set +a \
-&& ${PROJECT_INSTALL_DIR}bin/mayan-edms.py platformtemplate docker_entrypoint > /usr/local/bin/entrypoint.sh \
-&& chown mayan:mayan /usr/local/bin/entrypoint.sh \
-&& chmod +x /usr/local/bin/entrypoint.sh \
-&& ${PROJECT_INSTALL_DIR}bin/mayan-edms.py platformtemplate docker_supervisord > ${SUPERVISOR_CONFIGURATION_DIRECTORY}${SUPERVISOR_CONFIGURATION_FILENAME} \
-&& apt-get clean autoclean \
-&& apt-get autoremove --purge --yes \
-&& rm -rf /var/lib/apt/lists/* \
-&& rm -f /var/cache/apt/archives/*.deb \
-# Remove temporary files owned by root from the platformtemplate step.
-&& rm -f /tmp/* \
-# Keep displaying log messages to stdout
-&& find /var/log -type f | while read f; do echo -ne '' > $f; done \
-# Delete Debian package proxy used for the base image.
-&& rm -f /etc/apt/apt.conf.d/01proxy
+    && . /config.env \
+    && set +a \
+    && ${PROJECT_INSTALL_DIR}bin/mayan-edms.py platformtemplate docker_entrypoint > /usr/local/bin/entrypoint.sh \
+    && chown mayan:mayan /usr/local/bin/entrypoint.sh \
+    && chmod +x /usr/local/bin/entrypoint.sh \
+    && ${PROJECT_INSTALL_DIR}bin/mayan-edms.py platformtemplate docker_supervisord > ${SUPERVISOR_CONFIGURATION_DIRECTORY}${SUPERVISOR_CONFIGURATION_FILENAME} \
+    && apt-get clean autoclean \
+    && apt-get autoremove --purge --yes \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /var/cache/apt/archives/*.deb \
+    # Remove temporary files owned by root from the platformtemplate step.
+    && rm -f /tmp/* \
+    # Keep displaying log messages to stdout
+    && find /var/log -type f | while read f; do echo -ne '' > $f; done \
+    # Delete Debian package proxy used for the base image.
+    && rm -f /etc/apt/apt.conf.d/01proxy
+
+FROM final_image as test_image
+
+USER root
+
+COPY docker/rootfs/usr/local/bin /usr/local/bin
+
+COPY entrypoint.sh /usr/local/bin/
+
+COPY supervisord.conf /etc/supervisor/
+
+RUN cat /usr/local/bin/run_celery.sh
+
+RUN mkdir -p /var/lib/mayan \
+    && fix_permissions() { while [ $# -gt 0 ] ; do chgrp -R 0 "$1" && chmod -R g=u "$1"; shift; done } \
+    && fix_permissions /var/lib/mayan \
+    && fix_permissions /var/run \
+    && fix_permissions /var/log/supervisor \
+    && fix_permissions /etc/supervisor \
+    && fix_permissions /opt/mayan-edms/lib \
+    && sed -i 's/chmod=0700/chmod=0777/g' /etc/supervisor/supervisord.conf
+
+VOLUME ["/var/lib/mayan"]
+
+ENTRYPOINT ["entrypoint.sh"]
+
+EXPOSE 8000
+CMD ["run_all"]
+
