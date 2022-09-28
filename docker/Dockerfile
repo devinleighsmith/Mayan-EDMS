@@ -223,6 +223,7 @@ RUN mkdir -p /var/lib/mayan \
   && fix_permissions /etc/supervisor \
   && fix_permissions /opt/mayan-edms/lib \
   && fix_permissions /usr/local/bin/ \
+  && chmod 777 /usr/local/bin/entrypoint.sh \
   && sed -i 's/chmod=0700/chmod=0777/g' /etc/supervisor/supervisord.conf
 
 VOLUME ["/var/lib/mayan"]
